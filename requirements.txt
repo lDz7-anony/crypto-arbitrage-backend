@@ -1,0 +1,37 @@
+# FastAPI e servidor
+fastapi==0.104.1
+uvicorn[standard]==0.24.0
+
+# Configuração e validação
+pydantic==2.5.0
+python-dotenv==1.0.0
+
+# Requisições HTTP
+httpx==0.25.2
+aiohttp==3.9.1
+
+# WebSocket
+websockets==12.0
+
+# Logging e monitoramento
+structlog==23.2.0
+
+# Utilitários
+python-multipart==0.0.6
+
+# Dependências essenciais para Railway
+gunicorn==21.2.0
+
+# Banco de dados (opcional - descomente se necessário)
+# sqlalchemy==2.0.23
+# asyncpg==0.29.0
+# alembic==1.13.0
+
+# Notificações (opcional - descomente se necessário)
+# twilio==8.10.0
+# sendgrid==6.10.0
+# python-telegram-bot==20.7
+
+# Segurança (opcional - descomente se necessário)
+# python-jose[cryptography]==3.3.0
+# passlib[bcrypt]==1.7.4
