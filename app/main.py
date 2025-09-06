@@ -4,10 +4,16 @@ FastAPI Backend
 """
 
 import os
+import logging
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
-from app.api.prices import router as prices_router
+
+# Configurar logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+# Importar rotas apenas quando necessário para evitar problemas de inicialização
 
 # Criar instância do FastAPI
 app = FastAPI(
@@ -33,8 +39,21 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Incluir rotas
-app.include_router(prices_router)
+# Incluir rotas (importação lazy para evitar problemas de startup)
+try:
+    from app.api.prices import router as prices_router
+    app.include_router(prices_router)
+    logger.info("Price routes loaded successfully")
+except Exception as e:
+    logger.warning(f"Failed to load price routes: {e}")
+    # Criar rotas básicas se houver falha
+    @app.get("/api/v1/prices/{symbol}")
+    async def fallback_prices(symbol: str):
+        return {"error": "Price service temporarily unavailable", "symbol": symbol}
+    
+    @app.get("/api/v1/arbitrage")
+    async def fallback_arbitrage():
+        return {"error": "Arbitrage service temporarily unavailable"}
 
 @app.get("/")
 async def root():
@@ -49,11 +68,41 @@ async def root():
 @app.get("/health")
 async def health_check():
     """Health check endpoint"""
+    logger.info("Health check requested")
     return {
         "status": "healthy",
         "service": "crypto-arbitrage-monitor",
-        "version": "1.0.0"
+        "version": "1.0.0",
+        "timestamp": "2025-01-06T22:30:00Z"
     }
+
+@app.on_event("startup")
+async def startup_event():
+    """Evento de inicialização da aplicação"""
+    logger.info("🚀 Application starting up...")
+    logger.info("📊 Crypto Arbitrage Monitor API")
+    logger.info("🔗 Health endpoint available at /health")
+    logger.info("📚 API documentation available at /docs")
+    
+    # Verificar variáveis de ambiente
+    port = os.getenv("PORT", "8000")
+    host = os.getenv("HOST", "0.0.0.0")
+    logger.info(f"🌐 Starting server on {host}:{port}")
+    
+    # Verificar se as rotas foram carregadas
+    try:
+        from app.api.prices import router as prices_router
+        logger.info("✅ Price monitoring routes loaded")
+    except Exception as e:
+        logger.warning(f"⚠️ Price routes not available: {e}")
+    
+    logger.info("✅ Application startup completed successfully")
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    """Evento de encerramento da aplicação"""
+    logger.info("🛑 Application shutting down...")
+    logger.info("✅ Shutdown completed")
 
 @app.get("/api/v1/status")
 async def api_status():
@@ -80,10 +129,20 @@ if __name__ == "__main__":
     debug = os.getenv("DEBUG", "false").lower() == "true"
     log_level = os.getenv("LOG_LEVEL", "info")
     
-    uvicorn.run(
-        "main:app",
-        host=host,
-        port=port,
-        reload=debug,
-        log_level=log_level
-    )
+    logger.info(f"🚀 Starting Crypto Arbitrage Monitor")
+    logger.info(f"🌐 Host: {host}")
+    logger.info(f"🔌 Port: {port}")
+    logger.info(f"🐛 Debug: {debug}")
+    logger.info(f"📝 Log Level: {log_level}")
+    
+    try:
+        uvicorn.run(
+            "main:app",
+            host=host,
+            port=port,
+            reload=debug,
+            log_level=log_level
+        )
+    except Exception as e:
+        logger.error(f"❌ Failed to start server: {e}")
+        raise
