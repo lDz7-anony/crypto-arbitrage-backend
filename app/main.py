@@ -5,7 +5,8 @@ FastAPI Backend
 
 import os
 import logging
-from fastapi import FastAPI
+import time
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
 
@@ -24,20 +25,49 @@ app = FastAPI(
     redoc_url="/redoc"
 )
 
-# Configurar CORS
-# Obter origens permitidas das variáveis de ambiente
-allowed_origins = os.getenv("ALLOWED_ORIGINS", "*").split(",")
-if allowed_origins == ["*"]:
-    # Em produção, usar origens específicas se definidas
-    allowed_origins = ["*"]
+# Configurar CORS para permitir requisições de qualquer domínio
+# Especialmente importante para v0.dev e outros domínios de preview
+logger.info("🔗 Configurando CORS para permitir todas as origens")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=allowed_origins,
-    allow_credentials=True,
-    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    allow_headers=["*"],
+    allow_origins=["*"],  # Permite todas as origens (incluindo v0.dev)
+    allow_credentials=True,  # Permite cookies e headers de autenticação
+    allow_methods=["*"],  # Permite todos os métodos HTTP
+    allow_headers=["*"],  # Permite todos os headers
 )
+
+logger.info("✅ CORS configurado com sucesso - permitindo todas as origens")
+
+# Middleware personalizado para logging de requisições CORS
+@app.middleware("http")
+async def cors_logging_middleware(request: Request, call_next):
+    """Middleware para logging de requisições CORS"""
+    start_time = time.time()
+    
+    # Log da requisição recebida
+    origin = request.headers.get("origin", "unknown")
+    method = request.method
+    path = request.url.path
+    
+    logger.info(f"🌐 Requisição recebida: {method} {path} de origem: {origin}")
+    
+    # Processar a requisição
+    response = await call_next(request)
+    
+    # Calcular tempo de processamento
+    process_time = time.time() - start_time
+    
+    # Log da resposta
+    logger.info(f"✅ Resposta enviada: {response.status_code} em {process_time:.3f}s para {origin}")
+    
+    # Adicionar headers CORS explícitos para garantir compatibilidade
+    response.headers["Access-Control-Allow-Origin"] = "*"
+    response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS"
+    response.headers["Access-Control-Allow-Headers"] = "*"
+    response.headers["Access-Control-Allow-Credentials"] = "true"
+    
+    return response
 
 # Incluir rotas (importação lazy para evitar problemas de startup)
 try:
@@ -109,6 +139,8 @@ async def api_status():
     """Status da API"""
     return {
         "api_status": "operational",
+        "cors_enabled": True,
+        "cors_origins": ["*"],
         "endpoints": {
             "health": "/health",
             "docs": "/docs",
@@ -116,10 +148,25 @@ async def api_status():
             "prices": "/api/v1/prices",
             "arbitrage": "/api/v1/arbitrage",
             "websocket_prices": "/api/v1/ws/prices",
-            "websocket_arbitrage": "/api/v1/ws/arbitrage"
+            "websocket_arbitrage": "/api/v1/ws/arbitrage",
+            "cors_test": "/api/v1/cors-test"
         },
         "supported_symbols": ["BTC", "ETH"],
         "exchanges": ["binance", "coinbase", "kraken"]
+    }
+
+@app.get("/api/v1/cors-test")
+async def cors_test():
+    """Endpoint para testar CORS"""
+    return {
+        "message": "CORS funcionando corretamente!",
+        "cors_headers": {
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+            "Access-Control-Allow-Headers": "*",
+            "Access-Control-Allow-Credentials": "true"
+        },
+        "timestamp": "2025-01-06T22:30:00Z"
     }
 
 if __name__ == "__main__":
