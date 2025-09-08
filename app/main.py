@@ -8,6 +8,8 @@ import logging
 import time
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from models.user import UserCreate, UserResponse
+from datetime import datetime
 import uvicorn
 
 # Configurar logging
@@ -105,6 +107,17 @@ async def health_check():
         "version": "1.0.0",
         "timestamp": "2025-01-06T22:30:00Z"
     }
+
+@app.post("/auth/register", response_model=UserResponse)
+async def register(user: UserCreate):
+    """Register a new user"""
+    logger.info(f"User registration attempt for email: {user.email}")
+    return UserResponse(
+        id="temp-123",
+        email=user.email, 
+        name=user.name,
+        created_at=datetime.now().isoformat()
+    )
 
 @app.on_event("startup")
 async def startup_event():

@@ -5,6 +5,7 @@ uvicorn[standard]==0.24.0
 # Configuração e validação
 pydantic==2.5.0
 python-dotenv==1.0.0
+email-validator==2.1.0
 
 # Requisições HTTP
 httpx==0.25.2
