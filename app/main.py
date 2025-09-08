@@ -6,11 +6,18 @@ FastAPI Backend
 import os
 import logging
 import time
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from models.user import UserCreate, UserResponse
-from datetime import datetime
+from datetime import datetime, timedelta
+from jose import JWTError, jwt
 import uvicorn
+
+# JWT Configuration
+SECRET_KEY = "crypto-arbitrage-secret-key-2024"
+ALGORITHM = "HS256"
+security = HTTPBearer()
 
 # Configurar logging
 logging.basicConfig(level=logging.INFO)
@@ -119,6 +126,53 @@ async def register(user: UserCreate):
         created_at=datetime.now().isoformat()
     )
 
+def create_access_token(data: dict, expires_delta: timedelta = None):
+    """Create JWT access token"""
+    to_encode = data.copy()
+    if expires_delta:
+        expire = datetime.utcnow() + expires_delta
+    else:
+        expire = datetime.utcnow() + timedelta(hours=24)
+    to_encode.update({"exp": expire})
+    encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+    return encoded_jwt
+
+def verify_token(credentials: HTTPAuthorizationCredentials = Depends(security)):
+    """Verify JWT token"""
+    try:
+        payload = jwt.decode(credentials.credentials, SECRET_KEY, algorithms=[ALGORITHM])
+        email: str = payload.get("sub")
+        if email is None:
+            raise HTTPException(status_code=401, detail="Invalid token")
+        return email
+    except JWTError:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+@app.post("/auth/login")
+async def login(email: str, password: str):
+    """Login with email and password - returns JWT token"""
+    logger.info(f"Login attempt for email: {email}")
+    
+    # Simple mock authentication
+    if email == "teste@exemplo.com" and password == "senha123":
+        token_data = {"sub": email, "exp": datetime.utcnow() + timedelta(hours=24)}
+        token = create_access_token(token_data)
+        logger.info(f"Login successful for email: {email}")
+        return {"access_token": token, "token_type": "bearer"}
+    
+    logger.warning(f"Login failed for email: {email}")
+    return {"error": "Invalid credentials"}
+
+@app.get("/auth/verify")
+async def verify_auth(current_user: str = Depends(verify_token)):
+    """Verify JWT token and return user info"""
+    logger.info(f"Token verification for user: {current_user}")
+    return {
+        "email": current_user,
+        "authenticated": True,
+        "message": "Token is valid"
+    }
+
 @app.on_event("startup")
 async def startup_event():
     """Evento de inicialização da aplicação"""
@@ -158,6 +212,9 @@ async def api_status():
             "health": "/health",
             "docs": "/docs",
             "redoc": "/redoc",
+            "auth_register": "/auth/register",
+            "auth_login": "/auth/login",
+            "auth_verify": "/auth/verify",
             "prices": "/api/v1/prices",
             "arbitrage": "/api/v1/arbitrage",
             "websocket_prices": "/api/v1/ws/prices",
